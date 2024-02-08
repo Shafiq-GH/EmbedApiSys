@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Streaming</title>
+  <link href="https://unpkg.com/video.js/dist/video-js.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/video.js/dist/video.min.js"></script>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    .video-js {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  
+  <video id="my_video_1" class="video-js vjs-default-skin" controls preload="auto" data-setup='{}'></video>
+
+  <script>
+    // Assuming you know the movieId
+    const movieId = '609681';
+    const videoElement = document.getElementById('my_video_1');
+
+    fetch(`http://localhost:3000/movies/${movieId}`)
+      .then(response => response.json())
+      .then(data => {
+        // Assuming 'data' contains the last source URL and the first subtitle URL
+        const source = document.createElement('source');
+        source.setAttribute('src', data.url); // URL from the backend
+        source.setAttribute('type', 'application/x-mpegURL');
+        videoElement.appendChild(source);
+
+        // If there are subtitles
+        if (data.subtitles && data.subtitles.length > 0) {
+          const track = document.createElement('track');
+          track.kind = 'subtitles';
+          track.src = data.subtitles[0].url; // Assuming first subtitle URL from the backend
+          track.srclang = 'en';
+          track.label = 'English';
+          track.default = true;
+          videoElement.appendChild(track);
+        }
+
+        // Initialize the player with the new source
+        var player = videojs('my_video_1');
+        player.ready(function() {
+          this.play();
+        });
+      })
+      .catch(error => console.error('Error fetching movie data:', error));
+  </script>
+
+</body>
+</html>
