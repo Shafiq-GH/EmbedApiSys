@@ -1,8 +1,4 @@
-/\*\*
 
-- Returns a greeting for the given name.
-  \*/
-
-# My Project
+# Embed System Manager
 
 This is a readme for my project.
