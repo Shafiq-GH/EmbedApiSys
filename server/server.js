@@ -31,3 +31,9 @@ try {
 } catch (error) {
   console.error("Error connecting to the database:", error);
 }
+/**
+ * Connects to MongoDB database using Mongoose.
+ * Configures Express app with middlewares.
+ * Sets up routes for movies and embed.
+ * Starts Express server listening on port from .env or 3000.
+ */
