@@ -50,7 +50,7 @@ async function searchForMedia(title, isMovie = true) {
       const provider = providers[key];
       const searchResults = isMovie
         ? await provider.search(title)
-        : await provider.searchTvShows(title);
+        : await provider.search(title); //was > await provider.searchTvShows(title);
 
       // Assuming searchResults is an object with the expected structure
       if (
@@ -126,6 +126,55 @@ async function extractStreamingLink(provider, id, singleId) {
   }
 }
 
+async function extractStreamingLinkSeries(provider, id, episodeId) {
+  const maxRetries = 3; // Maximum number of retries
+  let currentAttempt = 0;
+  console.log("episodeId", episodeId);
+  console.log("id", id);
+  while (currentAttempt < maxRetries) {
+    try {
+      const sourceData = await provider.fetchEpisodeSources(episodeId, id);
+      if (!sourceData || !sourceData.sources || !sourceData.subtitles) {
+        throw new Error("Invalid source data from provider");
+      }
+      const extractedSource = {
+        sources: sourceData.sources.map((s) => ({
+          url: s.url,
+          quality: s.quality,
+          isM3U8: s.isM3U8,
+        })),
+        subtitles: sourceData.subtitles.map((s) => ({
+          url: s.url,
+          language: s.lang,
+        })),
+      };
+      return extractedSource;
+    } catch (error) {
+      console.error("Error extracting streaming link:", error);
+      if (
+        error.message.includes("Malformed UTF-8 data") &&
+        currentAttempt < maxRetries - 1
+      ) {
+        console.log(
+          `Waiting 2 seconds before retrying attempt ${
+            currentAttempt + 2
+          } of ${maxRetries}...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for 2 seconds
+        currentAttempt++;
+        continue; // Skip the rest of the loop and try again
+      } else {
+        // For the last attempt or other errors, rethrow the error
+        throw new Error(
+          `Error extracting streaming link after ${
+            currentAttempt + 1
+          } attempts: ${error.message}`
+        );
+      }
+    }
+  }
+}
+
 // Get movie data using TheMovieDB ID
 async function getMovieData(tmdbId) {
   console.log("Fetching movie data from TMDB using tmdbid:", tmdbId);
@@ -154,34 +203,93 @@ async function getMovieData(tmdbId) {
   }
 }
 
-// Get TV show data using TheMovieDB ID, season, and episode
-async function getTVData(tmdbId, season, episode) {
+async function getSeriesData(tmdbId, seasonNumber, episodeNumber) {
+  const number = Number(seasonNumber); // Convert to Number if it's a String
+  const season = Number(episodeNumber);
+  console.log("Fetching series data from TMDB using tmdbid:", tmdbId);
   try {
-    const title = await getTitleFromTMDB(tmdbId, false);
-    const { provider, searchResults } = await searchForMedia(title, false);
-    const tvShowInfo = searchResults.find((show) => show.id === tmdbId);
-
-    if (!tvShowInfo) {
-      throw new Error("TV show not found");
-    }
-
-    const episodeData = await provider.fetchEpisodeSources(
-      tvShowInfo.id,
-      season,
-      episode
+    const title = await getTitleFromTMDB(tmdbId, (isMovie = false));
+    const { providerr, id } = await searchForMedia(title, (isMovie = false));
+    const provider = providers[providerr];
+    const mediaInfo = await provider.fetchMediaInfo(id);
+    console.log("mediaInfo.episodes:", mediaInfo.episodes);
+    const episodeInfos = mediaInfo.episodes.map((episode) => ({
+      episodeId: episode.id,
+      season: episode.season,
+      episode: episode.number,
+    }));
+    console.log("List of episodes from episodeInfos: ", episodeInfos);
+    //------------------------------------------------
+    console.log("Finding Episode Id from season:", season, "episode:", number);
+    const episode = episodeInfos.find(
+      (ep) => ep.episode === number && ep.season === season
     );
-    const streamingLink = extractStreamingLink(episodeData);
+    console.log("episode", episode);
+    const episodeId = episode ? episode.episodeId : null; // will be `null` if no episode is found
 
+    //------------------------------------------------
+
+    if (!episodeId) {
+      console.log(
+        `No episode found with the given season number ${seasonNumber} and episode number ${episodeNumber}`
+      );
+    } else {
+      console.log(
+        `Series Id from season ${seasonNumber} episode ${episodeNumber}:`,
+        episodeId
+      );
+    }
+    const streamingLink = await extractStreamingLinkSeries(
+      provider,
+      id,
+      episodeId
+    );
+    const isHDAvailable = await streamingLink.sources.some((source) => {
+      const qualityNumber = parseInt(source.quality, 10);
+      return !isNaN(qualityNumber) && qualityNumber >= 1080;
+    });
+    const qualityStatus = isHDAvailable ? "HD" : "CAM";
     return {
       streamingLink,
-      title: `${tvShowInfo.title} S${season}E${episode}`,
+      qualityStatus,
+      title: mediaInfo.title,
+      releaseDate: mediaInfo.releaseDate,
+      seriesId: tmdbId,
     };
   } catch (error) {
-    throw new Error(`Error fetching TV data: ${error.message}`);
+    console.error("Error inside getMovieData: ", error);
+    throw new Error(`Error fetching movie data: ${error.message}`);
   }
 }
 
+// // Get TV show data using TheMovieDB ID, season, and episode
+// async function getTVData(tmdbId, season, episode) {
+//   try {
+//     const title = await getTitleFromTMDB(tmdbId, false);
+//     const { provider, searchResults } = await searchForMedia(title, false);
+//     const tvShowInfo = searchResults.find((show) => show.id === tmdbId);
+
+//     if (!tvShowInfo) {
+//       throw new Error("TV show not found");
+//     }
+
+//     const episodeData = await provider.fetchEpisodeSources(
+//       tvShowInfo.id,
+//       season,
+//       episode
+//     );
+//     const streamingLink = extractStreamingLink(episodeData);
+
+//     return {
+//       streamingLink,
+//       title: `${tvShowInfo.title} S${season}E${episode}`,
+//     };
+//   } catch (error) {
+//     throw new Error(`Error fetching TV data: ${error.message}`);
+//   }
+// }
+
 module.exports = {
   getMovieData,
-  getTVData,
+  getSeriesData,
 };

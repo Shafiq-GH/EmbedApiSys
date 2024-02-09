@@ -22,7 +22,7 @@ const seriesDb = require("./routes/series");
 
 app.use("/movies", movieDb);
 app.use("/embed", embedMovie);
-// app.use("/series", seriesDb);
+app.use("/series", seriesDb);
 
 try {
   app.listen(process.env.PORT || 3000, () => {

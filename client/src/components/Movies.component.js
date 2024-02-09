@@ -21,7 +21,7 @@ export default class Movies extends Component {
 
   fetchMovies = async () => {
     try {
-      const response = await axios.get("http://localhost:3000/movies");
+      const response = await axios.get("https://server1.popit.watch/movies/");
       this.setState({ movies: response.data });
     } catch (error) {
       console.error("Error fetching movies", error);

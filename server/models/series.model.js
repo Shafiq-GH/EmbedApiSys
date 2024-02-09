@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 
 // Define the schema
-const movieSchema = new mongoose.Schema({
-  movieId: {
+const seriesSchema = new mongoose.Schema({
+  seriesId: {
     type: String,
     required: true,
   },
@@ -12,6 +12,16 @@ const movieSchema = new mongoose.Schema({
   },
   releaseDate: {
     type: Date,
+    required: true,
+  },
+  episodes: {
+    type: [
+      {
+        episodeId: String,
+        episodeNumber: Number,
+        seasonNumber: Number,
+      },
+    ],
     required: true,
   },
   source: {
@@ -38,6 +48,6 @@ const movieSchema = new mongoose.Schema({
   },
 });
 
-const MovieDb = mongoose.model("Movies", movieSchema);
+const SeriesDb = mongoose.model("Series", seriesSchema);
 
-module.exports = MovieDb;
+module.exports = SeriesDb;
